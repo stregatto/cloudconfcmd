@@ -1,0 +1,125 @@
+#cloud-config
+
+hostname: "{{ worker_name }}"
+
+ssh_authorized_keys:
+  - "ssh-rsa SOME PUBLIC KEY"
+write_files:
+  - path: /etc/modprobe.d/bonding.conf
+    content: |
+      # Prevent kernel from automatically creating bond0 when the module is loaded.
+      # This allows systemd-networkd to create and apply options to bond0.
+      options bonding max_bonds=0
+  - path: /etc/systemd/network/10-eth.network
+    permissions: 0644
+    owner: root
+    content: |
+      [Match]
+      Name=eno*
+
+      [Network]
+      Bond=bond0
+  - path: /etc/systemd/network/20-bond.netdev
+    permissions: 0644
+    owner: root
+    content: |
+      [NetDev]
+      Name=bond0
+      Kind=bond
+
+      [Bond]
+      MIIMonitorSec=100
+      Mode=802.3ad
+      LACPTransmitRate=fast
+      UpDelaySec=3s
+      DownDelaySec=9s
+  - path: /etc/systemd/network/30-bond-static.network
+    permissions: 0644
+    owner: root
+    content: |
+      [Match]
+      Name=bond0
+
+      [Network]
+      Address={{ worker_ip }}/24
+      Gateway=192.168.0.1
+  - path: "/etc/resolv.conf"
+    permissions: "0644"
+    owner: "root"
+    content: |
+      domain mydomain
+      search mydomain
+      nameserver 192.168.0.254
+      nameserver 192.168.0.254
+  - path: /etc/ntp.conf
+    content: |
+      server 192.168.0.254
+      restrict default nomodify nopeer noquery limited kod
+      restrict 127.0.0.1
+      restrict [::1]
+  - path: /etc/systemd/system/docker.service.d/40-flannel.conf
+    content: |
+      [Unit]
+      Requires=flanneld.service
+      After=flanneld.service
+  - path: /etc/systemd/system/flanneld.service.d/40-ExecStartPre-symlink.conf
+    content: |
+      [Service]
+      ExecStartPre=/usr/bin/ln -sf /etc/flannel/options.env /run/flannel/options.env
+  - path: /etc/systemd/system/etcd2.service.d/40-listen-address.conf
+    content: |
+      [Service]
+      Environment=ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      Environment=ETCD_ADVERTISE_CLIENT_URLS=http://{{ worker_name }}.mydomain:2379
+  - path: /etc/systemd/system/etcd2.service
+    content: |
+      [Unit]
+      Description=etcd2
+      Wants=network-online.target
+      After=network-online.target
+      Conflicts=etcd.service
+
+      [Service]
+      User=etcd
+      Type=notify
+      Environment=ETCD_DATA_DIR=/var/lib/etcd2
+      Environment=ETCD_NAME=%m
+      ExecStart=/usr/bin/etcd2
+      Restart=always
+      RestartSec=10s
+      LimitNOFILE=40000
+      TimeoutStartSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/flannel/options.env
+    content: | 
+      FLANNELD_IFACE={{ worker_ip }}
+      FLANNELD_ETCD_ENDPOINTS={{ etcd_endpoint }}
+coreos:
+  units:
+    - name: systemd-networkd-wait-online.service
+      command: start
+      enable: true
+     - name: docker.service
+      command: start
+    - name: systemd-networkd.service
+      command: start
+      enable: true
+    - name: etcd2.service
+      command: start
+    - name: flanneld.service
+      drop-ins:
+        - name: 50-network-config.conf
+          content: |
+            [Service]
+            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{"Network":"192.168.0.0/16"}'
+      command: start
+  etcd2:
+    initial-advertise-peer-urls: "http://{{ worker_name }}.mydomain:2380"
+    initial-cluster-token: "etcdcluster1"
+    initial-cluster-state: "new"
+    discovery-srv: "mydomain"
+    advertise-client-urls: "http://{{ worker_name }}.mydomain:2379"
+    listen-client-urls: "http://{{ worker_name }}.mydomain:2379"
+    listen-peer-urls: "http://{{ worker_name }}.mydomain:2380"
