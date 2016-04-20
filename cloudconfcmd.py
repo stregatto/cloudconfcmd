@@ -23,6 +23,13 @@ def get_servers_data(datafile):
     return json_data
 
 
+def get_ssh_public_keys(sshpublickeysfile):
+    with open(sshpublickeysfile) as ssh_keys:
+        keys = ssh_keys.read()
+        logging.debug('ssh_keys: %s' % keys)
+    return keys
+
+
 def import_cloud_template(cloudtemplatefile):
     templateLoader = jinja2.FileSystemLoader(searchpath="./")
     templateEnv = jinja2.Environment(loader=templateLoader)
@@ -37,17 +44,21 @@ def put_servers_data(json_data, datafile):
         json.dump(json_data, fp, sort_keys=True, indent=4)
 
 
-def render_cloudfile(server_name, servers_data, cloudtemplatefile, template):
+def render_cloudfile(server_name, servers_data, cloudtemplatefile,
+                     ssk_keys, template):
     worker_name = server_name
     worker_ip = servers_data['servers'][server_name]['worker_ip']
     etcd_endpoint = servers_data['etcd']['etcd_endpoint']
+    ssh_public_keys = ssk_keys
     logging.debug('list of templateVars:')
-    logging.debug('worker: %s, ip: %s, etcd: %s' % (worker_name,
-                                                    worker_ip,
-                                                    etcd_endpoint))
+    logging.debug('worker: %s, ip: %s, etcd: %s, ssh_key %s' % (worker_name,
+                                                                worker_ip,
+                                                                etcd_endpoint,
+                                                                ssh_public_keys))
     templateVars = {"worker_name": worker_name,
                     "worker_ip": worker_ip,
-                    "etcd_endpoint": etcd_endpoint}
+                    "etcd_endpoint": etcd_endpoint,
+                    "ssh_public_keys": ssh_public_keys}
     outputText = template.render(templateVars)
     print outputText
     return
@@ -74,11 +85,13 @@ logging.debug('Debug on')
 
 datafile = 'servermap.json'
 outdatafile = 'datafile.json'
-cloudtemplatefile = 'workerTEMPLATE.yaml'
-
+cloudtemplatefile = 'nodeTEMPLATE.cloud-config.yaml'
+sshpublickeysfile = 'ssh_pubkey.list'
 servers_data = get_servers_data(datafile)
+ssk_keys = get_ssh_public_keys(sshpublickeysfile)
 cloud_template = import_cloud_template(cloudtemplatefile)
-render_cloudfile(args.server, servers_data, cloudtemplatefile, cloud_template)
+render_cloudfile(args.server, servers_data, cloudtemplatefile,
+                 ssk_keys, cloud_template)
 logging.debug('servers_data: %s' % servers_data['servers'])
 
 #

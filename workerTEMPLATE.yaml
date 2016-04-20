@@ -3,7 +3,7 @@
 hostname: "{{ worker_name }}"
 
 ssh_authorized_keys:
-  - "ssh-rsa SOME PUBLIC KEY"
+ {{ ssh_public_keys }}
 write_files:
   - path: /etc/modprobe.d/bonding.conf
     content: |
