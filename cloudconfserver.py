@@ -1,0 +1,43 @@
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+from bottle import route, run, template
+from cloudconfcmd import Main
+
+
+class Args(object):
+    server = ""
+    debug = ""
+
+    def __init__(self, server, debug):
+        self.server = server
+        self.debug = debug
+
+
+# class Complex:
+#     def __init__(self, realpart, imagpart):
+#         self.r = realpart
+#         self.i = imagpart
+#
+# x = Complex(3.0, -4.5)
+
+
+@route('/coreos-cloudconfig/<servername>')
+def index(servername):
+        args = Args(servername, 'INFO')
+        main = Main(args)
+        # print ('args value %s %s' % (args.server, args.debug))
+        return main.output
+
+run(host='localhost', port=8080)

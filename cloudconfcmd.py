@@ -60,39 +60,47 @@ def render_cloudfile(server_name, servers_data, cloudtemplatefile,
                     "etcd_endpoint": etcd_endpoint,
                     "ssh_public_keys": ssh_public_keys}
     outputText = template.render(templateVars)
-    print outputText
-    return
+    # print outputText
+    return outputText
 
 
 def put_cloud_file():
     return
 
 
-parser = argparse.ArgumentParser(description='CloudConfig generator')
-parser.add_argument('-s', '--server',
-                    help='server name', required=True)
-parser.add_argument('-d', '--debug',
-                    help='debug value [DEBUG|Default=none]', required=False)
-args = parser.parse_args()
+def interactive():
+    parser = argparse.ArgumentParser(description='CloudConfig generator')
+    parser.add_argument('-s', '--server',
+                        help='server name', required=True)
+    parser.add_argument('-d', '--debug',
+                        help='debug value [DEBUG|Default=none]', required=False)
+    args = parser.parse_args()
+    logger = logging.getLogger()
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+    if args.debug:
+        logger.setLevel(args.debug)
+    return args
 
-logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-if args.debug:
-    logger.setLevel(args.debug)
 
-logging.debug('Debug on')
+class Main(object):
+
+    def __init__(self, args):
+        servers_data = get_servers_data(datafile)
+        ssk_keys = get_ssh_public_keys(sshpublickeysfile)
+        cloud_template = import_cloud_template(cloudtemplatefile)
+        self.output = render_cloudfile(args.server, servers_data,
+                                       cloudtemplatefile,
+                                       ssk_keys, cloud_template)
+        logging.debug('Debug on')
+        logging.debug('servers_data: %s' % servers_data['servers'])
 
 datafile = 'servermap.json'
 outdatafile = 'datafile.json'
 cloudtemplatefile = 'nodeTEMPLATE.cloud-config.yaml'
 sshpublickeysfile = 'ssh_pubkey.list'
-servers_data = get_servers_data(datafile)
-ssk_keys = get_ssh_public_keys(sshpublickeysfile)
-cloud_template = import_cloud_template(cloudtemplatefile)
-render_cloudfile(args.server, servers_data, cloudtemplatefile,
-                 ssk_keys, cloud_template)
-logging.debug('servers_data: %s' % servers_data['servers'])
 
-#
-# put_servers_data(servers_data, outdatafile)
+if __name__ == "__main__":
+    args = interactive()
+    main = Main(args)
+    print("%s" % main.output)
