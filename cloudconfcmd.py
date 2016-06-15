@@ -17,8 +17,9 @@ import logging
 import argparse
 
 
-def get_servers_data(datafile):
-    with open(datafile) as json_file:
+def get_servers_data(datafile, prefix):
+    filename=prefix+'-'+datafile
+    with open(filename) as json_file:
         json_data = json.load(json_file)
     return json_data
 
@@ -30,10 +31,11 @@ def get_ssh_public_keys(sshpublickeysfile):
     return keys
 
 
-def import_cloud_template(cloudtemplatefile):
+def import_cloud_template(cloudtemplatefile, prefix):
+    filename=prefix+'-'+cloudtemplatefile
     templateLoader = jinja2.FileSystemLoader(searchpath="./")
     templateEnv = jinja2.Environment(loader=templateLoader)
-    template = templateEnv.get_template(cloudtemplatefile)
+    template = templateEnv.get_template(filename)
 #    with open(cloudtemplatefile) as template_file:
 #        t = templateEnv.get_template(template_file)
     return template
@@ -44,7 +46,7 @@ def put_servers_data(json_data, datafile):
         json.dump(json_data, fp, sort_keys=True, indent=4)
 
 
-def render_cloudfile(server_name, servers_data, cloudtemplatefile,
+def render_cloudfile(server_name, servers_data,
                      ssk_keys, template):
     worker_name = server_name
     worker_ip = servers_data['servers'][server_name]['worker_ip']
@@ -86,18 +88,18 @@ def interactive():
 class Main(object):
 
     def __init__(self, args):
-        servers_data = get_servers_data(datafile)
+        server_prefix=args.server.split('-')[0]
+        servers_data = get_servers_data(datafile, server_prefix)
         ssk_keys = get_ssh_public_keys(sshpublickeysfile)
-        cloud_template = import_cloud_template(cloudtemplatefile)
+        cloud_template = import_cloud_template(cloudtemplatefile, server_prefix)
         self.output = render_cloudfile(args.server, servers_data,
-                                       cloudtemplatefile,
                                        ssk_keys, cloud_template)
         logging.debug('Debug on')
         logging.debug('servers_data: %s' % servers_data['servers'])
 
 datafile = 'servermap.json'
 outdatafile = 'datafile.json'
-cloudtemplatefile = 'nodeTEMPLATE.cloud-config.yaml'
+cloudtemplatefile = 'node-TEMPLATE.cloud-config.yaml'
 sshpublickeysfile = 'ssh_pubkey.list'
 
 if __name__ == "__main__":
