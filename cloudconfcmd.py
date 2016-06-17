@@ -19,6 +19,7 @@ import argparse
 
 def get_servers_data(datafile, prefix):
     filename=prefix+'-'+datafile
+    logging.debug('serverdata filename: %s ' % filename)
     with open(filename) as json_file:
         json_data = json.load(json_file)
     return json_data
@@ -50,6 +51,7 @@ def render_cloudfile(server_name, servers_data,
                      ssk_keys, template):
     worker_name = server_name
     worker_ip = servers_data['servers'][server_name]['worker_ip']
+    eth_type = servers_data['servers'][server_name]['eth_type']
     etcd_endpoint = servers_data['etcd']['etcd_endpoint']
     ssh_public_keys = ssk_keys
     logging.debug('list of templateVars:')
@@ -59,6 +61,7 @@ def render_cloudfile(server_name, servers_data,
                                                                 ssh_public_keys))
     templateVars = {"worker_name": worker_name,
                     "worker_ip": worker_ip,
+                    "eth_type": eth_type,
                     "etcd_endpoint": etcd_endpoint,
                     "ssh_public_keys": ssh_public_keys}
     outputText = template.render(templateVars)
@@ -89,6 +92,7 @@ class Main(object):
 
     def __init__(self, args):
         server_prefix=args.server.split('-')[0]
+        logging.debug('server_prefix: %s' % server_prefix)
         servers_data = get_servers_data(datafile, server_prefix)
         ssk_keys = get_ssh_public_keys(sshpublickeysfile)
         cloud_template = import_cloud_template(cloudtemplatefile, server_prefix)
